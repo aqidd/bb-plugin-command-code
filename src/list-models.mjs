@@ -39,6 +39,26 @@ export function parseCmdModelTable(stdout) {
 }
 
 /**
+ * BB renders the right-hand side of the model line as the model's name in
+ * its picker, and cmd's descriptions are marketing taglines ("fast
+ * hybrid-attention reasoning"), not names. Derive a plain name from the id:
+ * "z-ai/glm-5.3-flash" -> "GLM 5.3 Flash", "claude-sonnet-5" -> "Claude Sonnet 5".
+ */
+const ACRONYMS = new Set(["ai", "glm", "gpt"]);
+
+export function modelNameFromId(id) {
+  const local = id.includes("/") ? id.slice(id.lastIndexOf("/") + 1) : id;
+  return local
+    .split(/[-_:]/)
+    .map((word) => {
+      if (!word) return word;
+      if (ACRONYMS.has(word)) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+}
+
+/**
  * Render for BB's `MODEL_LINE_PATTERN` (`/^(\S+) - (.+)$/`).
  *
  * The line format carries no default marker and BB treats the first row as
@@ -46,7 +66,7 @@ export function parseCmdModelTable(stdout) {
  */
 export function formatModelLines(models) {
   const ordered = [...models].sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
-  return ordered.map(({ id, description }) => `${id} - ${description || id}`).join("\n");
+  return ordered.map(({ id }) => `${id} - ${modelNameFromId(id)}`).join("\n");
 }
 
 export function runCmdListModels(executable = "cmd") {

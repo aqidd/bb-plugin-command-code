@@ -8,7 +8,7 @@ import {
   unwrapCmdLine,
 } from "../src/map-events.mjs";
 import { buildCmdArgs, flattenPrompt } from "../src/cmd-session.mjs";
-import { formatModelLines, parseCmdModelTable } from "../src/list-models.mjs";
+import { formatModelLines, modelNameFromId, parseCmdModelTable } from "../src/list-models.mjs";
 
 test("text and thinking deltas become their own ACP chunk kinds", () => {
   assert.deepEqual(mapCmdEvent({ type: "text_delta", delta: "pong" }).updates, [
@@ -152,6 +152,19 @@ test("cmd's aligned model table is reformatted for BB's parser", () => {
   }
 });
 
+test("model names are derived from ids, not cmd's marketing taglines", () => {
+  assert.equal(modelNameFromId("z-ai/glm-5.3-flash"), "GLM 5.3 Flash");
+  assert.equal(modelNameFromId("deepseek/deepseek-v4.1-flash"), "Deepseek V4.1 Flash");
+  assert.equal(modelNameFromId("claude-sonnet-5"), "Claude Sonnet 5");
+  assert.equal(modelNameFromId("gpt-5.6-luna"), "GPT 5.6 Luna");
+  assert.equal(modelNameFromId("nvidia/nemotron-3-ultra-550b-a55b"), "Nemotron 3 Ultra 550b A55b");
+  // BB's picker shows the right-hand side as the name: no taglines, always parseable.
+  assert.equal(
+    formatModelLines(parseCmdModelTable("x/y   some tagline here (default)")),
+    "x/y - Y",
+  );
+});
+
 test("cmd's own default model is rendered first, because BB takes row one", () => {
   const models = parseCmdModelTable(
     [
@@ -159,5 +172,5 @@ test("cmd's own default model is rendered first, because BB takes row one", () =
       "beta/two     second model (default)",
     ].join("\n"),
   );
-  assert.equal(formatModelLines(models).split("\n")[0], "beta/two - second model");
+  assert.equal(formatModelLines(models).split("\n")[0], "beta/two - Two");
 });
