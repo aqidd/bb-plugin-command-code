@@ -1,0 +1,62 @@
+{
+  "name": "bb-plugin-command-code",
+  "version": "0.1.0",
+  "description": "Run Command Code (cmd) as a first-class agent provider inside BB, over the Agent Client Protocol.",
+  "license": "MIT",
+  "type": "module",
+  "author": "Bukhori Muhammad Aqid",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aqidd/bb-plugin-command-code.git"
+  },
+  "homepage": "https://github.com/aqidd/bb-plugin-command-code#readme",
+  "bugs": {
+    "url": "https://github.com/aqidd/bb-plugin-command-code/issues"
+  },
+  "keywords": [
+    "bb",
+    "bb-plugin",
+    "acp",
+    "agent-client-protocol",
+    "command-code",
+    "coding-agent"
+  ],
+  "engines": {
+    "node": ">=22",
+    "bb": ">=0.42",
+    "bbPluginSdk": ">=0.4.47"
+  },
+  "bin": {
+    "command-code-acp": "./bin/command-code-acp.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "assets",
+    "dist",
+    "server.ts",
+    "host.ts"
+  ],
+  "bb": {
+    "name": "Command Code",
+    "description": "Run Command Code (cmd) as a BB agent provider over the Agent Client Protocol.",
+    "branding": {
+      "icon": "./assets/icon.svg"
+    },
+    "server": "./server.ts",
+    "host": "./host.ts"
+  },
+  "scripts": {
+    "build": "bb plugin build",
+    "test": "node --test test/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.4.0",
+    "@get-bb/plugin-sdk": "0.4.47"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
