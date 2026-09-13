@@ -8,7 +8,7 @@ import {
   unwrapCmdLine,
 } from "../src/map-events.mjs";
 import { buildCmdArgs, flattenPrompt } from "../src/cmd-session.mjs";
-import { formatModelLines, modelNameFromId, parseCmdModelTable } from "../src/list-models.mjs";
+import { modelNameFromId, parseCmdModelTable } from "../src/list-models.mjs";
 
 test("text and thinking deltas become their own ACP chunk kinds", () => {
   assert.deepEqual(mapCmdEvent({ type: "text_delta", delta: "pong" }).updates, [
@@ -130,7 +130,7 @@ test("prompt blocks flatten to one cmd prompt", () => {
   );
 });
 
-test("cmd's aligned model table is reformatted for BB's parser", () => {
+test("cmd's aligned model table is parsed, headings and footers skipped", () => {
   const table = [
     "Available models  ·  70 models",
     "",
@@ -146,10 +146,6 @@ test("cmd's aligned model table is reformatted for BB's parser", () => {
     "z-ai/glm-5.3-flash",
   ]);
   assert.equal(models[0].isDefault, true);
-  // BB's MODEL_LINE_PATTERN is /^(\S+) - (.+)$/.
-  for (const line of formatModelLines(models).split("\n")) {
-    assert.match(line, /^(\S+) - (.+)$/);
-  }
 });
 
 test("model names are derived from ids, not cmd's marketing taglines", () => {
@@ -158,19 +154,4 @@ test("model names are derived from ids, not cmd's marketing taglines", () => {
   assert.equal(modelNameFromId("claude-sonnet-5"), "Claude Sonnet 5");
   assert.equal(modelNameFromId("gpt-5.6-luna"), "GPT 5.6 Luna");
   assert.equal(modelNameFromId("nvidia/nemotron-3-ultra-550b-a55b"), "Nemotron 3 Ultra 550b A55b");
-  // BB's picker shows the right-hand side as the name: no taglines, always parseable.
-  assert.equal(
-    formatModelLines(parseCmdModelTable("x/y   some tagline here (default)")),
-    "x/y - Y",
-  );
-});
-
-test("cmd's own default model is rendered first, because BB takes row one", () => {
-  const models = parseCmdModelTable(
-    [
-      "alpha/one    first model",
-      "beta/two     second model (default)",
-    ].join("\n"),
-  );
-  assert.equal(formatModelLines(models).split("\n")[0], "beta/two - Two");
 });

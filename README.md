@@ -72,7 +72,7 @@ Command Code does have a `PreToolUse` hook that can deny a call, which is the li
 
 Multi-turn context works by resuming: `cmd -p` is one-shot, so each ACP prompt spawns a fresh `cmd` resumed onto the same Command Code session id. The ACP-id → cmd-id pairing lives in `~/.command-code-acp/sessions.json` so `session/load` survives a restart.
 
-Model selection uses `cmd --list-models`, reformatted into the `id - description` lines BB's bridge parses (all 70 models as of 1.53.0).
+Models and reasoning effort are ACP session config options: a `model` select from `cmd --list-models`, and a `thought_level` select holding only the selected model's `--effort` levels, read from the `models.md` cmd bundles (GLM 5.3 Flash: low, high, max). Models with no declared efforts run at their own default.
 
 ## Using the adapter without BB
 

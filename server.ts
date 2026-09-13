@@ -12,19 +12,14 @@ function buildLaunchSpec(allowWrites: boolean, executable: string): JsonValue {
     command: "command-code-acp",
     args: allowWrites ? ["--yolo"] : ["--readonly"],
     env: executable === "" ? {} : { COMMAND_CODE_EXECUTABLE: executable },
-    modelCli: {
-      listArgs: ["--list-models"],
-      primaryModels: [],
-      selectFlag: "--model",
-    },
     permissionCli: {
       // Both write modes land on the same switch; only the setting narrows it.
       full: allowWrites ? ["--yolo"] : ["--readonly"],
       workspaceWrite: allowWrites ? ["--yolo"] : ["--readonly"],
     },
-    // No reasoningCli: cmd's `--effort` levels vary per model (the default
-    // model accepts only high/max) and it exits 1 on an unsupported one, so a
-    // static ladder would break every thread. Each model's own default applies.
+    // No modelCli or reasoningCli: the adapter advertises models and each
+    // model's own `--effort` ladder as ACP session config options, which BB
+    // only discovers when no modelCli is set.
     nativeSkillRoots: {
       user: [".command-code/skills", ".claude/skills", ".agents/skills"],
       project: [".command-code/skills", ".claude/skills", ".agents/skills"],
@@ -72,9 +67,9 @@ export default function plugin(bb: BbPluginApi) {
       supportsThreadRename: false,
       // "auto" is deliberately absent: the SDK's ACP bridge has no arm for it.
       permissionModes: ["accept-edits", "full"],
-      // Inert single entry: the ladder must be non-empty, but effort is left
-      // to the model (see the reasoningCli note in buildLaunchSpec).
-      reasoningLevels: ["medium"],
+      // Fallback only: each model's real ladder comes from the adapter's
+      // thought_level config option (see buildLaunchSpec).
+      reasoningLevels: ["low", "medium", "high", "xhigh", "max"],
     },
     models: { fallback: [], scope: "host" },
     composerActions: [],

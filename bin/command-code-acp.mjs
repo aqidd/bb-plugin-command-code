@@ -12,7 +12,7 @@ import { randomUUID } from "node:crypto";
 import { AgentSideConnection, ndJsonStream } from "@agentclientprotocol/sdk";
 
 import { buildCmdArgs, flattenPrompt, runCmdTurn } from "../src/cmd-session.mjs";
-import { formatModelLines, parseCmdModelTable, runCmdListModels } from "../src/list-models.mjs";
+import { applyConfigOption, buildConfigOptions, loadCmdCatalog } from "../src/list-models.mjs";
 import { loadSessionStore } from "../src/session-store.mjs";
 
 const VERSION = "0.1.0";
@@ -39,6 +39,7 @@ class CommandCodeAgent {
   #connection;
   #options;
   #store;
+  #catalog;
   /** @type {Map<string, AbortController>} */
   #running = new Map();
 
@@ -65,23 +66,55 @@ class CommandCodeAgent {
     return {};
   }
 
+  /** A failed model listing leaves the session on cmd's defaults rather than failing it. */
+  #loadCatalog() {
+    this.#catalog ??= loadCmdCatalog(this.#options.executable).catch((error) => {
+      process.stderr.write(`command-code-acp: model catalog unavailable: ${error.message}\n`);
+      return { models: [], efforts: new Map() };
+    });
+    return this.#catalog;
+  }
+
+  async #configOptions(record) {
+    const { models, efforts } = await this.#loadCatalog();
+    return buildConfigOptions(models, efforts, record);
+  }
+
   async newSession(params) {
     const sessionId = randomUUID();
-    await this.#store.put(sessionId, { cwd: params?.cwd, cmdSessionId: undefined });
-    return { sessionId };
+    const record = {
+      cwd: params?.cwd,
+      cmdSessionId: undefined,
+      model: this.#options.model,
+      effort: this.#options.effort,
+    };
+    await this.#store.put(sessionId, record);
+    return { sessionId, configOptions: await this.#configOptions(record) };
   }
 
   async loadSession(params) {
-    const known = await this.#store.get(params.sessionId);
-    if (known === undefined) {
-      await this.#store.put(params.sessionId, { cwd: params?.cwd, cmdSessionId: undefined });
+    let record = await this.#store.get(params.sessionId);
+    if (record === undefined) {
+      record = { cwd: params?.cwd, cmdSessionId: undefined };
+      await this.#store.put(params.sessionId, record);
     }
-    return {};
+    return { configOptions: await this.#configOptions(record) };
+  }
+
+  async setSessionConfigOption(params) {
+    const record = (await this.#store.get(params.sessionId)) ?? {};
+    const { efforts } = await this.#loadCatalog();
+    const next = applyConfigOption(record, params.configId, String(params.value), efforts);
+    await this.#store.put(params.sessionId, next);
+    return { configOptions: await this.#configOptions(next) };
   }
 
   async prompt(params) {
     const { sessionId } = params;
     const record = (await this.#store.get(sessionId)) ?? {};
+    // The config options clamp a stale or unsupported effort before cmd can reject it.
+    const configOptions = await this.#configOptions(record);
+    const selected = (category) => configOptions.find((o) => o.category === category)?.currentValue;
     const controller = new AbortController();
     this.#running.set(sessionId, controller);
 
@@ -91,8 +124,8 @@ class CommandCodeAgent {
         args: buildCmdArgs({
           cmdSessionId: record.cmdSessionId,
           allowWrites: this.#options.allowWrites,
-          model: this.#options.model,
-          effort: this.#options.effort,
+          model: selected("model") ?? record.model,
+          effort: selected("thought_level"),
         }),
         cwd: params.cwd ?? record.cwd ?? process.cwd(),
         env: process.env,
@@ -119,14 +152,6 @@ class CommandCodeAgent {
 }
 
 const options = parseArgv(process.argv.slice(2));
-
-// BB discovers models by running the agent with `--list-models` rather than
-// over the protocol, so this path prints and exits instead of serving ACP.
-if (process.argv.includes("--list-models")) {
-  process.stdout.write(`${formatModelLines(parseCmdModelTable(await runCmdListModels(options.executable)))}\n`);
-  process.exit(0);
-}
-
 const store = await loadSessionStore();
 const stream = ndJsonStream(Writable.toWeb(process.stdout), Readable.toWeb(process.stdin));
 

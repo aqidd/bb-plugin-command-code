@@ -10,7 +10,7 @@ The translation is what makes threads read like every other BB thread:
 
 - **Tool calls become BB timeline cards.** A shell command renders as a command execution with its output streaming in. A file read links the file it touched. A write carries a diff.
 - **Reasoning is separated from the answer.** Command Code's thinking stream lands in BB's reasoning item, not inline with the reply.
-- **Every model is selectable.** The adapter reformats `cmd --list-models` into the shape BB's picker reads, with Command Code's own default model first.
+- **Every model and effort is selectable.** The picker lists all `cmd --list-models` models, and each model offers exactly the reasoning efforts Command Code accepts for it (GLM 5.3 Flash: low, high, max).
 - **Context survives the turn.** `cmd -p` is one-shot, so each prompt resumes the same Command Code session underneath. A restart does not lose the thread.
 
 ## What it costs you
