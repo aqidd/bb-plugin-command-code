@@ -99,7 +99,7 @@ bb plugin install .
 - No per-tool permission prompts (upstream limitation, above).
 - Context usage only: the adapter sends ACP `usage_update` after every model request, so BB's context meter fills in, but BB's ACP bridge has no token or cost totals to report into.
 - `fork: "none"` — Command Code cannot clone a session, so BB's thread fork and edit-past-message are unavailable.
-- Images reach vision-capable models indirectly: BB passes a local image as its on-disk path and the model opens it with `read_file`, one extra tool call. Image URLs and audio are not forwarded.
+- Images reach vision-capable models indirectly: BB passes a local image as its on-disk path (the adapter downloads image URLs to a temp file first) and the model opens it with `read_file`, one extra tool call. Audio is not forwarded.
 
 ## License
 

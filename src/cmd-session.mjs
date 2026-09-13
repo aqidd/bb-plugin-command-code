@@ -7,6 +7,10 @@
  */
 
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createLineSplitter, mapCmdEvent, unwrapCmdLine } from "./map-events.mjs";
 
 /**
@@ -42,6 +46,49 @@ export function flattenPrompt(blocks) {
     })
     .filter((part) => part !== "")
     .join("\n\n");
+}
+
+/** BB's text for an image it only has as a URL (http(s) or data:). */
+const IMAGE_URL_ATTACHMENT = /\[image attachment: ((?:https?:\/\/|data:image\/)[^\]\s]+)\]/g;
+const IMAGE_EXTENSIONS = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/bmp": "bmp",
+  "image/tiff": "tiff",
+};
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+
+/**
+ * cmd -p takes text only and its read_file cannot open URLs, so image URLs
+ * are saved to disk and rewritten to the on-disk form BB uses for local
+ * images. A URL that fails to download, or is not an image, is left as-is.
+ */
+export async function localizeImageUrls(text, { dir = join(tmpdir(), "command-code-acp-images") } = {}) {
+  let result = text;
+  for (const url of new Set([...text.matchAll(IMAGE_URL_ATTACHMENT)].map((m) => m[1]))) {
+    const path = await saveImage(url, dir).catch(() => undefined);
+    if (path !== undefined) {
+      result = result.replaceAll(`[image attachment: ${url}]`, `[image attachment on disk: ${path}]`);
+    }
+  }
+  return result;
+}
+
+// ponytail: buffers the whole body before the size check and never deletes files; stream with a byte cap and clean up if large images show up.
+async function saveImage(url, dir) {
+  const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!response.ok) return undefined;
+  const type = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  const extension = IMAGE_EXTENSIONS[type];
+  if (extension === undefined) return undefined;
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length > MAX_IMAGE_BYTES) return undefined;
+  await mkdir(dir, { recursive: true });
+  const path = join(dir, `${randomUUID()}.${extension}`);
+  await writeFile(path, bytes);
+  return path;
 }
 
 /**

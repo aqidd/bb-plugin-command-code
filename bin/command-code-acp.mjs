@@ -11,7 +11,7 @@ import { Readable, Writable } from "node:stream";
 import { randomUUID } from "node:crypto";
 import { AgentSideConnection, ndJsonStream } from "@agentclientprotocol/sdk";
 
-import { buildCmdArgs, flattenPrompt, runCmdTurn } from "../src/cmd-session.mjs";
+import { buildCmdArgs, flattenPrompt, localizeImageUrls, runCmdTurn } from "../src/cmd-session.mjs";
 import { applyConfigOption, buildConfigOptions, loadCmdCatalog } from "../src/list-models.mjs";
 import { loadSessionStore } from "../src/session-store.mjs";
 
@@ -130,7 +130,7 @@ class CommandCodeAgent {
         }),
         cwd: params.cwd ?? record.cwd ?? process.cwd(),
         env: process.env,
-        prompt: flattenPrompt(params.prompt),
+        prompt: await localizeImageUrls(flattenPrompt(params.prompt)),
         signal: controller.signal,
         onUpdate: (update) => {
           void this.#connection.sessionUpdate({ sessionId, update });
