@@ -99,7 +99,7 @@ bb plugin install .
 - No per-tool permission prompts (upstream limitation, above).
 - No usage/cost reporting — `cmd` reports token usage per turn but BB's `provider/usage` is not wired up.
 - `fork: "none"` — Command Code cannot clone a session, so BB's thread fork and edit-past-message are unavailable.
-- Images and audio in prompts are not forwarded.
+- Images reach vision-capable models indirectly: BB passes a local image as its on-disk path and the model opens it with `read_file`, one extra tool call. Image URLs and audio are not forwarded.
 
 ## License
 
