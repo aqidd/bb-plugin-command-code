@@ -15,7 +15,7 @@ import { buildCmdArgs, flattenPrompt, localizeImageUrls, runCmdTurn } from "../s
 import { applyConfigOption, buildConfigOptions, loadCmdCatalog } from "../src/list-models.mjs";
 import { loadSessionStore } from "../src/session-store.mjs";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.2";
 
 function parseArgv(argv) {
   const options = {
