@@ -50,6 +50,7 @@ export function flattenPrompt(blocks) {
  * @param {object} o
  * @param {(update: object) => void} o.onUpdate
  * @param {(line: string) => void} [o.onLog] raw stderr, for diagnostics
+ * @param {Map<string, number>} [o.contexts] context window per model, for usage updates
  */
 export function runCmdTurn({
   executable = "cmd",
@@ -60,6 +61,7 @@ export function runCmdTurn({
   signal,
   onUpdate,
   onLog,
+  contexts,
 }) {
   return new Promise((resolve, reject) => {
     const child = spawn(executable, args, {
@@ -92,7 +94,7 @@ export function runCmdTurn({
       if (event.type === "result" && typeof event.sessionId === "string") {
         cmdSessionId = event.sessionId;
       }
-      const { updates, stopReason: reason } = mapCmdEvent(event);
+      const { updates, stopReason: reason } = mapCmdEvent(event, contexts);
       for (const update of updates) onUpdate(update);
       if (reason !== undefined) stopReason = reason;
     };

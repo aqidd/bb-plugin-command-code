@@ -111,8 +111,10 @@ function writeDiff(toolName, input) {
  * Deliberately ignores `message_update` / `message_end` / `thinking_end`:
  * those repeat the *cumulative* message, so forwarding them alongside the
  * `*_delta` events duplicates every word in the client.
+ *
+ * @param {Map<string, number>} [contexts] context window per lowercased model id
  */
-export function mapCmdEvent(event) {
+export function mapCmdEvent(event, contexts = new Map()) {
   const none = { updates: [] };
   if (!event || typeof event.type !== "string") return none;
 
@@ -188,6 +190,14 @@ export function mapCmdEvent(event) {
           },
         ],
       };
+
+    case "model_request_end": {
+      const size = contexts.get(String(event.model).toLowerCase());
+      const { inputTokens, outputTokens } = event.usage ?? {};
+      if (size === undefined || !Number.isInteger(inputTokens) || !Number.isInteger(outputTokens)) return none;
+      // cmd counts context as the request's input plus the reply it just added.
+      return { updates: [{ sessionUpdate: "usage_update", used: inputTokens + outputTokens, size }] };
+    }
 
     case "run_end":
       return { updates: [], stopReason: stopReasonOf(event.result?.stopReason) };

@@ -70,7 +70,7 @@ class CommandCodeAgent {
   #loadCatalog() {
     this.#catalog ??= loadCmdCatalog(this.#options.executable).catch((error) => {
       process.stderr.write(`command-code-acp: model catalog unavailable: ${error.message}\n`);
-      return { models: [], efforts: new Map() };
+      return { models: [], efforts: new Map(), contexts: new Map() };
     });
     return this.#catalog;
   }
@@ -115,6 +115,7 @@ class CommandCodeAgent {
     // The config options clamp a stale or unsupported effort before cmd can reject it.
     const configOptions = await this.#configOptions(record);
     const selected = (category) => configOptions.find((o) => o.category === category)?.currentValue;
+    const { contexts } = await this.#loadCatalog();
     const controller = new AbortController();
     this.#running.set(sessionId, controller);
 
@@ -135,6 +136,7 @@ class CommandCodeAgent {
           void this.#connection.sessionUpdate({ sessionId, update });
         },
         onLog: (text) => process.stderr.write(text),
+        contexts,
       });
 
       if (cmdSessionId !== undefined && cmdSessionId !== record.cmdSessionId) {

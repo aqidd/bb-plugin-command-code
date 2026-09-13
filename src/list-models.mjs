@@ -1,6 +1,7 @@
 /**
  * Model catalog for ACP session config options: models from `cmd
- * --list-models`, per-model reasoning efforts from the model doc cmd bundles.
+ * --list-models`, per-model reasoning efforts and context windows from the
+ * model doc cmd bundles.
  */
 
 import { execFile } from "node:child_process";
@@ -82,6 +83,20 @@ export function parseCmdEffortTable(markdown) {
   return efforts;
 }
 
+/** `| `id` | Name | Context | ...` with Context like "1.05M" or "256K". */
+const CONTEXT_ROW = /^\|\s*`([^`]+)`\s*\|[^|]*\|\s*([\d.]+)([KM])\s*\|/;
+const CONTEXT_UNIT = { K: 1_000, M: 1_000_000 };
+
+/** Context windows in tokens; "—" is unknown and gets no entry. */
+export function parseCmdContextTable(markdown) {
+  const contexts = new Map();
+  for (const line of String(markdown).split("\n")) {
+    const match = CONTEXT_ROW.exec(line);
+    if (match) contexts.set(match[1].toLowerCase(), Math.round(Number(match[2]) * CONTEXT_UNIT[match[3]]));
+  }
+  return contexts;
+}
+
 // ponytail: cmd publishes no per-model default effort; high sits in all but one ladder.
 function pickEffort(levels, effort) {
   if (levels.includes(effort)) return effort;
@@ -160,5 +175,9 @@ async function readCmdModelsDoc(executable) {
 
 export async function loadCmdCatalog(executable = "cmd") {
   const [table, doc] = await Promise.all([runCmdListModels(executable), readCmdModelsDoc(executable)]);
-  return { models: parseCmdModelTable(table), efforts: parseCmdEffortTable(doc) };
+  return {
+    models: parseCmdModelTable(table),
+    efforts: parseCmdEffortTable(doc),
+    contexts: parseCmdContextTable(doc),
+  };
 }
