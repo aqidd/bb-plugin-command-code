@@ -1,4 +1,6 @@
+import { defineRpcContract } from "@get-bb/plugin-sdk";
 import type { BbPluginApi, JsonValue } from "@get-bb/plugin-sdk";
+import { z } from "zod";
 
 /**
  * `cmd -p` has no interactive permission channel: file writes and shell
@@ -84,9 +86,134 @@ export default function plugin(bb: BbPluginApi) {
     },
   });
 
+  registerUsageSource(bb);
+
   void settings.get().then((values) => {
     bb.log.info(
       `Command Code provider registered (writes ${values.allowWrites ? "allowed" : "blocked"})`,
     );
   });
+}
+
+/**
+ * The Usage panel discovers sources through the provider-usage.v1 resource
+ * RPCs (same contract the built-in provider plugins implement). Inventory is
+ * metadata-only; measurements delegate to the core provider/usage path, which
+ * the host bridge answers from src/usage.mjs.
+ */
+function registerUsageSource(bb: BbPluginApi) {
+  const planSchema = z.object({
+    id: z.string().min(1),
+    multiplier: z.number().int().positive().nullable(),
+  });
+  const usageFields = {
+    plan: planSchema.nullable().default(null),
+    accountEmail: z.string().nullable(),
+    planLabel: z.string().nullable(),
+  };
+  const windowSchema = z.object({
+    kind: z.enum(["five-hour", "daily", "weekly", "custom"]).default("custom"),
+    id: z.string().min(1),
+    label: z.string().min(1),
+    usedPercent: z.number().nonnegative(),
+    resetsAt: z.string().nullable(),
+    model: z.string().nullable().default(null),
+    cost: z
+      .object({ usedUsdCents: z.number().nonnegative(), limitUsdCents: z.number().positive() })
+      .nullable()
+      .default(null),
+  });
+  const usageSchema = z.discriminatedUnion("status", [
+    z.object({ status: z.literal("ok"), ...usageFields, windows: z.array(windowSchema) }),
+    z.object({ status: z.literal("not_installed"), ...usageFields }),
+    z.object({ status: z.literal("unauthenticated"), ...usageFields }),
+    z.object({ status: z.literal("expired"), ...usageFields }),
+    z.object({ status: z.literal("error"), ...usageFields, message: z.string() }),
+  ]);
+  const contract = defineRpcContract({
+    "provider-usage.v1.listResources": {
+      input: z.object({}),
+      output: z.object({
+        label: z.string().min(1).optional(),
+        resources: z.array(
+          z.object({
+            accountKey: z.string().min(1).nullable().default(null),
+            id: z.string().min(1),
+            providerId: z.string().min(1),
+            label: z.string().min(1),
+            scope: z.discriminatedUnion("kind", [
+              z.object({ kind: z.literal("shared") }),
+              z.object({ kind: z.literal("host"), hostId: z.string().min(1), hostName: z.string().min(1) }),
+            ]),
+          }),
+        ),
+      }),
+    },
+    "provider-usage.v1.getResource": {
+      input: z.object({ resourceId: z.string().min(1), refresh: z.boolean() }),
+      output: z.object({
+        accountKey: z.string().min(1).nullable().default(null),
+        observedAt: z.number().int().nonnegative().nullable(),
+        usage: usageSchema,
+      }),
+    },
+  });
+
+  bb.rpc.register(
+    contract,
+    {
+      async "provider-usage.v1.listResources"() {
+        const hosts = await bb.sdk.hosts.list();
+        const resources = (
+          await Promise.all(
+            hosts.map(async (host) => {
+              const providers = await bb.sdk.providers
+                .list({ hostId: host.id, capability: "usage" })
+                .catch(() => []);
+              return providers
+                .filter((p) => p.id === "command-code" && p.pluginId === "command-code")
+                .map((p) => ({
+                  id: JSON.stringify([host.id, p.id]),
+                  accountKey: null,
+                  providerId: p.id,
+                  label: p.displayName,
+                  scope: { kind: "host" as const, hostId: host.id, hostName: host.name },
+                }));
+            }),
+          )
+        ).flat();
+        return { resources };
+      },
+      async "provider-usage.v1.getResource"({ resourceId, refresh }) {
+        const [hostId, providerId] = z
+          .tuple([z.string().min(1), z.string().min(1)])
+          .parse(JSON.parse(resourceId));
+        const host = await bb.sdk.hosts.get({ hostId });
+        if (host.status === "disconnected") {
+          return {
+            accountKey: null,
+            observedAt: null,
+            usage: usageSchema.parse({
+              status: "error",
+              message: "Machine is disconnected.",
+              accountEmail: null,
+              planLabel: null,
+            }),
+          };
+        }
+        const providers = await bb.sdk.providers.list({ hostId, capability: "usage" });
+        if (!providers.some((p) => p.id === providerId)) {
+          throw new Error("Usage resource no longer exists.");
+        }
+        const usage = (await bb.sdk.system.usageLimits({ hostId, providerId, refresh }))[providerId];
+        if (!usage) throw new Error("Provider returned no usage information.");
+        return {
+          accountKey: null,
+          observedAt: usage.status === "ok" ? Date.now() : null,
+          usage: usageSchema.parse({ ...usage, plan: null }),
+        };
+      },
+    },
+    { experimental_discoverable: true },
+  );
 }

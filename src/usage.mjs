@@ -29,17 +29,19 @@ const num = (v) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, v)
 const percent = (used, total) => (total > 0 ? Math.min(100, (used / total) * 100) : 0);
 const iso = (ms) => (typeof ms === "number" && Number.isFinite(ms) ? new Date(ms).toISOString() : null);
 
-function limitWindow(label, limit) {
+function limitWindow(kind, label, limit) {
   if (!limit || typeof limit.used !== "number" || typeof limit.cap !== "number") return null;
-  return { label, usedPercent: percent(limit.used, limit.cap), resetsAt: iso(limit.resetAt) };
+  // cost/model omitted: the 0.4x bridge schema rejects cost:null; the
+  // usage-source server fills them via schema defaults.
+  return { kind, label, usedPercent: percent(limit.used, limit.cap), resetsAt: iso(limit.resetAt) };
 }
 
 /** @returns {import("@get-bb/plugin-sdk/provider-bridge").ProviderUsage} */
 export function mapUsage({ whoami, credits, subscription, summary }) {
   const windows = [];
-  const fiveHour = limitWindow("5-hour limit", credits?.windowLimits?.fiveHour);
+  const fiveHour = limitWindow("five-hour", "5-hour limit", credits?.windowLimits?.fiveHour);
   if (fiveHour) windows.push(fiveHour);
-  const weekly = limitWindow("Weekly limit", credits?.windowLimits?.weekly);
+  const weekly = limitWindow("weekly", "Weekly limit", credits?.windowLimits?.weekly);
   if (weekly) windows.push(weekly);
   const sub = subscription?.data ?? null;
   if (credits?.credits) {
@@ -47,6 +49,7 @@ export function mapUsage({ whoami, credits, subscription, summary }) {
     const remaining = num(c.monthlyCredits) + num(c.purchasedCredits) + num(c.freeCredits);
     const used = num(summary?.totalCost);
     windows.push({
+      kind: "custom",
       label: "Credits",
       usedPercent: percent(used, remaining + used),
       resetsAt: typeof sub?.currentPeriodEnd === "string" ? sub.currentPeriodEnd : null,
@@ -57,7 +60,7 @@ export function mapUsage({ whoami, credits, subscription, summary }) {
     status: "ok",
     accountEmail: typeof whoami?.user?.email === "string" ? whoami.user.email : null,
     planLabel: planId ? planId.split(/[_-]/)[0].replace(/^\w/, (ch) => ch.toUpperCase()) : null,
-    windows,
+    windows: windows.map((w, i) => ({ ...w, id: `${i}:${w.label}` })),
   };
 }
 

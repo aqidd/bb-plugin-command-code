@@ -40,6 +40,8 @@ test("mapUsage maps windows, credits, plan, email", () => {
   assert.equal(u.accountEmail, "dev@example.com");
   assert.equal(u.planLabel, "Pro");
   assert.deepEqual(u.windows.map((w) => w.label), ["5-hour limit", "Weekly limit", "Credits"]);
+  assert.deepEqual(u.windows.map((w) => w.kind), ["five-hour", "weekly", "custom"]);
+  assert.deepEqual(u.windows.map((w) => w.id), ["0:5-hour limit", "1:Weekly limit", "2:Credits"]);
   assert.ok(Math.abs(u.windows[0].usedPercent - (0.5 / 3) * 100) < 1e-9);
   assert.equal(u.windows[0].resetsAt, new Date(1794624608432).toISOString());
   assert.ok(Math.abs(u.windows[2].usedPercent - (0.2 / 10) * 100) < 1e-9);
