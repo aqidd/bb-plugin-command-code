@@ -97,7 +97,7 @@ bb plugin install .
 ## Known gaps
 
 - No per-tool permission prompts (upstream limitation, above).
-- Context usage only: the adapter sends ACP `usage_update` after every model request, so BB's context meter fills in, but BB's ACP bridge has no token or cost totals to report into.
+- Account usage is reported to BB's Usage panel (`provider/usage`): the 5-hour and weekly windows, remaining credits, and plan, read from the same `api.commandcode.ai` endpoints `cmd /usage` uses. Requires `cmd login` on the machine; signed-out machines show the sign-in hint. The context meter still fills from ACP `usage_update` (no token/cost totals there).
 - `fork: "none"` — Command Code cannot clone a session, so BB's thread fork and edit-past-message are unavailable.
 - Images reach vision-capable models indirectly: BB passes a local image as its on-disk path (the adapter downloads image URLs to a temp file first) and the model opens it with `read_file`, one extra tool call. Audio is not forwarded.
 
