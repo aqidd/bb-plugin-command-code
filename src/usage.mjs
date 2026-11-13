@@ -34,6 +34,7 @@ function limitWindow(label, limit) {
   return { label, usedPercent: percent(limit.used, limit.cap), resetsAt: iso(limit.resetAt) };
 }
 
+/** @returns {import("@get-bb/plugin-sdk/provider-bridge").ProviderUsage} */
 export function mapUsage({ whoami, credits, subscription, summary }) {
   const windows = [];
   const fiveHour = limitWindow("5-hour limit", credits?.windowLimits?.fiveHour);
@@ -65,6 +66,7 @@ const usageError = (message) => ({
   usage: { status: "error", message, accountEmail: null, planLabel: null },
 });
 
+/** @returns {Promise<import("@get-bb/plugin-sdk/provider-bridge").ProviderUsageResult>} */
 export async function readUsage(io = { readAuthKey, getJson }) {
   const apiKey = await io.readAuthKey();
   if (!apiKey) return { supported: true, usage: { status: "unauthenticated" } };
@@ -102,6 +104,7 @@ export async function readUsage(io = { readAuthKey, getJson }) {
   }
 }
 
+/** @returns {Promise<{ email: string | null } | null>} */
 export async function readAccount() {
   // Local-only so health checks never hit the network; email comes from
   // whoami inside readUsage.

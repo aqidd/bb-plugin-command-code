@@ -57,7 +57,7 @@ export default function plugin(bb: BbPluginApi) {
     },
     // Hidden until `command-code-acp` is on the machine's PATH.
     experimental_visibility: "installed",
-    maintenance: { health: true, usage: false, installation: false },
+    maintenance: { health: true, usage: true, installation: false },
     capabilities: {
       supportsServiceTier: false,
       supportsNativeUserQuestion: false,
@@ -74,13 +74,13 @@ export default function plugin(bb: BbPluginApi) {
     models: { fallback: [], scope: "host" },
     composerActions: [],
     experimental_bridgeOptions: {
-      acpDialect: "generic",
+      acpDialect: "command-code",
       acpLaunchSpec: buildLaunchSpec(true, ""),
     },
     deriveProviderOptions(ctx) {
       const allowWrites = ctx.settings.allowWrites !== false;
       const executable = String(ctx.settings.executable ?? "").trim();
-      return { acpLaunchSpec: buildLaunchSpec(allowWrites, executable) };
+      return { acpDialect: "command-code", acpLaunchSpec: buildLaunchSpec(allowWrites, executable) };
     },
   });
 
